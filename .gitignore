@@ -3,3 +3,5 @@
 .env.*
 !.env.example__pycache__/
 *.pyc
+node_modules/
+frontend/node_modules/
