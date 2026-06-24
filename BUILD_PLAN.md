@@ -43,6 +43,20 @@ Architecture Diagram
 
 
 
+  
+Collector Profile  
+→ Orchestrator  
+→ Marketplace Provider Fetch Tool  
+→ Preference Filter + Validation  
+→ Recommender Agent  
+→ Evaluator Agent  
+→ Recommendations UI  
+  
+Collector Profile provides constraints to Preference Filter + Validation.  
+Collector Profile provides taste examples to Recommender Agent.  
+Evaluator Agent blocks or flags issues before results reach the UI.  
+
+
 The system is scoped around one known collector rather than a broad marketplace app. That keeps the MVP focused and makes the recommendation logic easier to explain: the system is not trying to learn every user’s taste; it is applying one collector’s known taste to active marketplace candidates.
 
 **PROJECT FLOW**

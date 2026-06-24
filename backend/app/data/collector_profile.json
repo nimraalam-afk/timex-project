@@ -1,0 +1,37 @@
+{
+  "profile_version": "1.0",
+  "collector_name": "Vintage Timex Collector",
+  "summary": "A vintage Timex collector who wants to surface interesting, affordable, working Timex watches across marketplaces without checking each site by hand.",
+  "brand_focus": "Timex",
+  "ships_to_postal_code": "M6K1V8",
+  "budget": {
+    "limit_cad": 50.0,
+    "basis": "price_plus_shipping_to_M6K1V8",
+    "notes": "Total landed cost (item + shipping, converted to CAD) must be at or under 50 CAD. This is a hard constraint."
+  },
+  "condition_preferences": {
+    "must_not_be_explicitly_broken": true,
+    "battery_replacement_acceptable": true,
+    "notes": "Willing to replace a battery. Pre-owned is fine. Avoid explicitly broken, not-running, or for-parts watches."
+  },
+  "taste": {
+    "interested_in": [
+      "vintage Timex models",
+      "deadstock / new old stock",
+      "collaborations and promo / branded dials",
+      "interesting or unusual designs",
+      "mechanical and quartz vintage pieces"
+    ],
+    "appeal_signals": [
+      "distinctive dials or logos",
+      "classic readable everyday styling",
+      "collector character over pristine condition"
+    ],
+    "notes": "\"Interesting\" is subjective and pattern-based. Calibrate taste from the three reference purchases rather than hard rules."
+  },
+  "reference_purchase_ids": [
+    "reference_purchase_001",
+    "reference_purchase_002",
+    "reference_purchase_003"
+  ]
+}
