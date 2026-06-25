@@ -8,3 +8,5 @@ pydantic==2.9.2
 openai==2.44.0
 # Loads a local .env for development; environment variables remain authoritative.
 python-dotenv==1.2.2
+# Synchronous HTTP client for the opt-in eBay Browse API provider.
+httpx==0.27.2

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 
+from app import config
 from app.config import COLLECTOR_PROFILE_PATH, REFERENCE_PURCHASES_PATH
 from app.models import Candidate, Exclusion, ScoutResult
 from app.pipeline.evaluate import evaluate
@@ -33,14 +34,49 @@ def _load_references() -> list:
     return normalize_listings(raw)
 
 
+def _select_provider() -> ListingProvider:
+    """Pick the default provider from config.
+
+    Uses the live eBay provider only when `LISTING_SOURCE=ebay` AND real eBay
+    credentials are present; otherwise returns the reliable seed provider. The
+    eBay import is local so a missing optional dependency never breaks seed runs.
+    """
+    if config.LISTING_SOURCE == "ebay" and config.ebay_enabled():
+        from app.providers.ebay_provider import EbayProvider
+
+        return EbayProvider()
+    return SeedProvider()
+
+
+def _fetch_raw_with_fallback(provider: ListingProvider) -> list:
+    """Fetch raw listings, falling back to seed data on any non-seed failure.
+
+    Keeps the demo independent of eBay availability: any token/network/HTTP/
+    mapping error, or an empty result from a non-seed provider, falls back to
+    the seed provider so the run still produces recommendations.
+    """
+    if isinstance(provider, SeedProvider):
+        return provider.fetch_raw()
+
+    try:
+        raw = provider.fetch_raw()
+        if raw:
+            return raw
+        print(f"[orchestrator] provider '{provider.name}' returned no listings; falling back to seed.")
+    except Exception as exc:  # noqa: BLE001 - intentional broad fallback to seed
+        print(f"[orchestrator] provider '{provider.name}' failed ({exc!r}); falling back to seed.")
+
+    return SeedProvider().fetch_raw()
+
+
 def run_scout(provider: ListingProvider | None = None, top_n: int = 3) -> ScoutResult:
     """Run the full pipeline and return a single traceable result object."""
-    provider = provider or SeedProvider()
+    provider = provider or _select_provider()
     profile = _load_profile()
     references = _load_references()
 
     # 1-3. Deterministic: fetch -> normalize -> validate.
-    raw = provider.fetch_raw()
+    raw = _fetch_raw_with_fallback(provider)
     listings = normalize_listings(raw)
     validations = validate_listings(listings)
 
