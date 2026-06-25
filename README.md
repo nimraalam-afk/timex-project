@@ -9,6 +9,16 @@ normalizes them into one schema, deterministically validates hard constraints
 (budget, condition, brand), recommends the top three candidates with reasoning,
 runs a lightweight evaluator quality gate, and shows the results in a thin web UI.
 
+## Latest V2 demo work
+
+After the initial MVP submission, I continued improving the app on follow-up branches. The latest V2 work adds OpenAI-backed recommender and evaluator paths, plus an eBay listing provider for collecting live active listings.
+
+The original deterministic pipeline remains intact, and the live integrations are designed as optional provider/LLM layers rather than hard dependencies. Seed-data fallback remains available so the demo does not depend on live APIs being available.
+
+![Timex Scout V2 demo with OpenAI and eBay](./timex-scout-v2-demo.png)
+
+See the `v2-live-integrations` and `v2-ebay-provider` branches for the latest integration work.
+
 ## What the app does
 
 1. Loads the collector profile and three reference purchases (taste examples).
@@ -36,13 +46,15 @@ React UI  ->  FastAPI  ->  Orchestrator (light agent)
                          -> validate
 ```
 
-| Component            | Agent?           | Why                                          |
-| -------------------- | ---------------- | -------------------------------------------- |
-| Orchestrator         | Light agent      | Coordinates the pipeline, returns trace      |
-| Marketplace fetcher  | No (tool)        | Deterministic retrieval + normalization      |
-| Filter / validator   | No               | Hard constraints must be deterministic       |
-| Recommender          | Yes (LLM)        | Needs judgment, ranking, explanation         |
-| Evaluator            | Light LLM check  | Quality gate over recommendations            |
+
+| Component           | Agent?          | Why                                     |
+| ------------------- | --------------- | --------------------------------------- |
+| Orchestrator        | Light agent     | Coordinates the pipeline, returns trace |
+| Marketplace fetcher | No (tool)       | Deterministic retrieval + normalization |
+| Filter / validator  | No              | Hard constraints must be deterministic  |
+| Recommender         | Yes (LLM)       | Needs judgment, ranking, explanation    |
+| Evaluator           | Light LLM check | Quality gate over recommendations       |
+
 
 Key backend modules (`backend/app/`):
 
@@ -90,7 +102,7 @@ npm install
 npm run dev
 ```
 
-Open the printed URL (default http://localhost:5173) and click **Run watch search**.
+Open the printed URL (default [http://localhost:5173](http://localhost:5173)) and click **Run watch search**.
 The UI shows a summary bar (pipeline counts and recommender/evaluator modes) and
 the top three recommendation cards. The frontend calls the backend at
 `http://127.0.0.1:8000`, so start the backend first.
@@ -120,10 +132,12 @@ In the UI, the same fallback state shows as `recommender: fallback`,
 
 All are optional. The demo runs without any of them.
 
-| Variable         | Required | Default       | Purpose                                                      |
-| ---------------- | -------- | ------------- | ----------------------------------------------------------- |
+
+| Variable         | Required | Default       | Purpose                                                                                          |
+| ---------------- | -------- | ------------- | ------------------------------------------------------------------------------------------------ |
 | `OPENAI_API_KEY` | No       | (unset)       | When set, the recommender/evaluator use OpenAI. When unset, both use the deterministic fallback. |
-| `OPENAI_MODEL`   | No       | `gpt-4o-mini` | Overrides the OpenAI model used when a key is set.           |
+| `OPENAI_MODEL`   | No       | `gpt-4o-mini` | Overrides the OpenAI model used when a key is set.                                               |
+
 
 Example:
 
@@ -164,7 +178,7 @@ mapping those fields in `normalize.py`. Because of the provider abstraction:
 
 - Validation, finance, recommender, evaluator, and UI stay unchanged.
 - The fetcher applies only broad provider-side constraints (keyword, category,
-  rough price); all hard rules remain in deterministic validation.
+rough price); all hard rules remain in deterministic validation.
 - Etsy can follow the same pattern once its API key is approved.
 
 Out of scope for this MVP: live API calls, scraping, authentication, a database,
