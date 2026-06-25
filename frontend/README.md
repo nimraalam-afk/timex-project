@@ -16,7 +16,10 @@ Open the printed URL (default http://localhost:5173) and click **Run watch searc
 
 ## What it shows
 
-- A summary bar: pipeline counts plus `recommender_mode`, `evaluator_mode`, `llm_used`.
+- A summary bar: pipeline counts plus an "AI run mode" area showing the recommender
+  and evaluator steps separately as "OpenAI" or "Deterministic fallback". These are
+  independent, so OpenAI may evaluate the picks even when the recommender used the
+  guarded deterministic fallback.
 - The top three recommendation cards: rank, image, title, marketplace, total CAD,
   why it matches, risk notes, the evaluator verdict/note, and a listing link.
 
