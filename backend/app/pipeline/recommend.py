@@ -130,14 +130,23 @@ def _recommend_llm(
         "within budget and not broken; do not re-check those constraints. Ground every reason "
         "in the listing's own fields. Return strict JSON."
     )
+    # Explicit allow-list of exact IDs the model may choose from. Provided as its
+    # own field (separate from the richer candidate objects) so the model copies an
+    # exact string rather than inventing one or using a title/rank/marketplace.
+    allowed_listing_ids = [c.listing.id for c in candidates]
+
     user = json.dumps(
         {
             "instruction": (
-                f"Pick exactly {top_n} listings (no more, no fewer) using only listing_id "
-                "values from the candidates below, with no duplicates. For each return "
-                "listing_id, why_it_matches (1-2 sentences grounded in the listing), and "
-                'risk_notes (array of short strings). Respond as {"recommendations": [...]}.'
+                f"Pick exactly {top_n} recommendations (no more, no fewer) with no duplicates. "
+                "Rules for listing_id: it MUST be an exact string copied verbatim from "
+                "allowed_listing_ids. Do NOT use a title, rank number, marketplace name, URL, "
+                "or an invented ID. Do NOT change capitalization, punctuation, or spacing. For "
+                "each recommendation return listing_id, why_it_matches (1-2 sentences grounded "
+                "in the listing), and risk_notes (array of short strings). "
+                'Respond as {"recommendations": [...]}.'
             ),
+            "allowed_listing_ids": allowed_listing_ids,
             "collector_profile": profile,
             "reference_purchases": [
                 {
@@ -200,10 +209,26 @@ def _validate_llm_items(items: object, by_id: dict[str, Candidate], expected: in
     if len(items) != expected:
         raise ValueError(f"expected {expected} recommendations, got {len(items)}")
 
-    ids = [item.get("listing_id") if isinstance(item, dict) else None for item in items]
+    # Separate "missing" (no usable id string) from "unknown" (an id that is not an
+    # exact candidate id). Listing ids are safe to log; we never log keys, prompts,
+    # or full payloads.
+    ids: list[str] = []
+    missing = 0
+    for item in items:
+        listing_id = item.get("listing_id") if isinstance(item, dict) else None
+        if isinstance(listing_id, str) and listing_id:
+            ids.append(listing_id)
+        else:
+            missing += 1
+
     unknown = [i for i in ids if i not in by_id]
-    if unknown:
-        raise ValueError("LLM returned unknown or missing listing id(s)")
+    if missing or unknown:
+        problems: list[str] = []
+        if missing:
+            problems.append(f"{missing} missing")
+        if unknown:
+            problems.append(f"unknown {unknown}")
+        raise ValueError("LLM returned invalid listing id(s): " + "; ".join(problems))
     if len(set(ids)) != expected:
         raise ValueError("LLM returned duplicate listing id(s)")
 
