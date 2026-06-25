@@ -1,7 +1,10 @@
 # Backend dependencies for the Timex Scout MVP.
-# Kept intentionally small: web framework, data models, server, and the OpenAI
-# client (used later by the recommender/evaluator; safe to install now).
+# Kept intentionally small: web framework, data models, server, the OpenAI client
+# (recommender/evaluator), and dotenv for loading a local .env in development.
 fastapi==0.115.0
 uvicorn==0.30.6
 pydantic==2.9.2
-openai==1.51.0
+# openai 2.x supports the Responses API (client.responses.create + output_text).
+openai==2.44.0
+# Loads a local .env for development; environment variables remain authoritative.
+python-dotenv==1.2.2

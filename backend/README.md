@@ -28,6 +28,19 @@ python3 -c "from app.orchestrator import run_scout; print(run_scout().model_dump
 Expected: `eligible 35 / excluded 25 / recommended 3`, with `recommender_mode` and
 `evaluator_mode` both `"fallback"` and `llm_used: false`.
 
+## Enabling the real OpenAI path
+
+A local `.env` (repo root) is auto-loaded via `python-dotenv`; real environment
+variables still take precedence. Set a real key to switch the recommender/evaluator
+to the OpenAI Responses API (placeholders like `your_openai_key_here` are ignored):
+
+```bash
+export OPENAI_API_KEY=sk-your-real-key   # or uncomment it in .env
+python3 -c "from app.orchestrator import run_scout; r = run_scout(); print(r.recommender_mode, r.evaluator_mode, r.llm_used)"
+```
+
+With a valid key, expect at least one step to report `llm` and `llm_used: true`.
+
 ## Layout
 
 - `app/config.py` - paths, budget rules, OpenAI key detection

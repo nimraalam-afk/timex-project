@@ -13,10 +13,22 @@ hard eligibility (budget/broken/brand) - validation already did that.
 from __future__ import annotations
 
 import json
+import logging
 
 from app.config import BUDGET_LIMIT_CENTS, llm_enabled
 from app.llm.client import chat_json
 from app.models import Candidate, Listing, Recommendation
+
+logger = logging.getLogger(__name__)
+
+
+def _sanitized(exc: Exception) -> str:
+    """Concise, safe summary of an exception for logging.
+
+    Only the exception class name and a truncated message - never tracebacks,
+    payloads, headers, env vars, or secrets.
+    """
+    return f"{type(exc).__name__}: {str(exc)[:200]}"
 
 # Tags that signal the vintage/collector character the collector is drawn to.
 COLLECTOR_TAGS = {
@@ -44,9 +56,9 @@ def recommend(
     if llm_enabled():
         try:
             return _recommend_llm(candidates, profile, references, top_n), "llm"
-        except Exception:
+        except Exception as exc:
             # Any LLM/parse error degrades gracefully to the deterministic path.
-            pass
+            logger.warning("LLM recommender failed; using fallback: %s", _sanitized(exc))
     return _recommend_fallback(candidates, references, top_n), "fallback"
 
 
@@ -121,9 +133,10 @@ def _recommend_llm(
     user = json.dumps(
         {
             "instruction": (
-                f"Pick the top {top_n} listings. For each return listing_id, why_it_matches "
-                "(1-2 sentences grounded in the listing), and risk_notes (array of short strings). "
-                'Respond as {"recommendations": [...]}.'
+                f"Pick exactly {top_n} listings (no more, no fewer) using only listing_id "
+                "values from the candidates below, with no duplicates. For each return "
+                "listing_id, why_it_matches (1-2 sentences grounded in the listing), and "
+                'risk_notes (array of short strings). Respond as {"recommendations": [...]}.'
             ),
             "collector_profile": profile,
             "reference_purchases": [
@@ -153,23 +166,46 @@ def _recommend_llm(
     )
 
     data = chat_json(system, user)
-    recs: list[Recommendation] = []
-    for i, item in enumerate(data.get("recommendations", [])[:top_n]):
-        candidate = by_id.get(item.get("listing_id"))
-        if candidate is None:
-            continue  # ignore hallucinated ids
-        recs.append(
-            _to_recommendation(
-                candidate,
-                i + 1,
-                item.get("why_it_matches", ""),
-                item.get("risk_notes"),
-            )
+    items = data.get("recommendations")
+
+    # Enforce the product contract before accepting any LLM output. We expect one
+    # pick per eligible listing up to top_n (so when >= top_n are eligible, exactly
+    # top_n). If the LLM output violates this, we raise so the caller falls back to
+    # the deterministic recommender. We never PARTIALLY accept LLM results - that
+    # keeps behavior simple and easy to explain.
+    expected = min(top_n, len(candidates))
+    _validate_llm_items(items, by_id, expected)
+
+    # Safe to build now: every id is known, unique, and the count is exact.
+    return [
+        _to_recommendation(
+            by_id[item["listing_id"]],
+            rank,
+            item.get("why_it_matches", ""),
+            item.get("risk_notes"),
         )
-    if not recs:
-        # Nothing usable came back; let the caller fall back deterministically.
-        raise ValueError("LLM returned no valid recommendations")
-    return recs
+        for rank, item in enumerate(items, start=1)
+    ]
+
+
+def _validate_llm_items(items: object, by_id: dict[str, Candidate], expected: int) -> None:
+    """Validate raw LLM recommendation items against the contract.
+
+    Raises ValueError if the output is malformed, the count is wrong, or any id is
+    unknown or duplicated. On success, `items` is guaranteed to be a list of dicts
+    with exactly `expected` unique, known listing ids.
+    """
+    if not isinstance(items, list):
+        raise ValueError("LLM recommendations field is missing or not a list")
+    if len(items) != expected:
+        raise ValueError(f"expected {expected} recommendations, got {len(items)}")
+
+    ids = [item.get("listing_id") if isinstance(item, dict) else None for item in items]
+    unknown = [i for i in ids if i not in by_id]
+    if unknown:
+        raise ValueError("LLM returned unknown or missing listing id(s)")
+    if len(set(ids)) != expected:
+        raise ValueError("LLM returned duplicate listing id(s)")
 
 
 # --- Shared helper ----------------------------------------------------------

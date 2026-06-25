@@ -9,10 +9,23 @@ available and a deterministic fallback otherwise, returning identical output.
 from __future__ import annotations
 
 import json
+import logging
 
 from app.config import llm_enabled
 from app.llm.client import chat_json
 from app.models import Candidate, EvaluatorNote, Recommendation
+
+logger = logging.getLogger(__name__)
+
+
+def _sanitized(exc: Exception) -> str:
+    """Concise, safe summary of an exception for logging.
+
+    Only the exception class name and a truncated message - never tracebacks,
+    payloads, headers, env vars, or secrets.
+    """
+    return f"{type(exc).__name__}: {str(exc)[:200]}"
+
 
 # Risk words serious enough that the evaluator wants the user explicitly warned.
 NOTABLE_RISK_WORDS = ("untested", "as-is", "as is", "unknown", "dead battery", "unverified")
@@ -31,8 +44,8 @@ def evaluate(
     if llm_enabled():
         try:
             return _evaluate_llm(recommendations, by_id, profile), "llm"
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("LLM evaluator failed; using fallback: %s", _sanitized(exc))
     return _evaluate_fallback(recommendations, by_id), "fallback"
 
 
